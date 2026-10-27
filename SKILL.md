@@ -60,6 +60,8 @@ metadata:
 - `edits apply` 返回的 `createdIds` 顺序和操作顺序不一致：按片段 name 查 ID。
 - `inspect` 里的 recentHistory 只有最近几条，完整历史用 `videos history`。有些事务撤不了（UNDO_UNAVAILABLE），跳过即可。
 - `derive` 是幂等的：同一区间再调用会拿回原来那个子视频（reused），要先撤销自己上次做的修改再重做。
+- 中途杀掉出片进程时，BaoCut 里已经提交的导出任务不会停，会一直占着导出队列（导出是一个接一个排队的），还会用旧内容覆盖成片：先 `baocut jobs list --json` 找出这些任务，用 `baocut jobs cancel <jobId>` 取消。
+- 被杀掉的那次运行留下的子视频，撤销可能清不干净，会残留重复的字幕轨道：脚本检测到残留就停下，这时用 `FRESH=1 python3 … build plan.py NN` 派生一个全新子视频，旧的让用户在 BaoCut 里手动删。
 - `videos frames` 取的是素材原帧，看不到旋转和叠加：检查合成效果要 `export --range a:b --purpose preview`。
 - 字幕层：派生时用 `--captions=false`，识别错字太多，改用自己写的字幕条。
 - 没有降噪，只有导出时 `--loudness`。

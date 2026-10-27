@@ -133,10 +133,14 @@ def build(P, L):
     span0, span1 = keeps[0][0], keeps[-1][1]
 
     r = bc("videos", "derive", S["baocut"], "--start", f"{span0:.3f}", "--end", f"{span1:.3f}",
-           "--name", f"第{no}课 {L['title']}", "--captions=false", "--yes")
+           "--name", f"第{no}课 {L['title']}", "--captions=false", "--yes",
+           *(["--translations=false"] if os.environ.get("FRESH") else []))  # FRESH=1：换个设置 = 全新子视频
     v, t0 = r["video"]["videoId"], r["range"]["start"]
     if r["reused"]:
         reset(v)
+        extra = [t["name"] for t in inspect(v)["tracks"] if t["name"] in ("字幕条", "提示卡", "片头片尾")]
+        if extra:  # 上次被中途杀掉时，撤销可能清不干净
+            sys.exit(f"❌ 第{no}课子视频 {v} 撤销后仍残留轨道 {extra}：用 FRESH=1 重跑（派生全新子视频），旧的在 BaoCut 里手动删")
     vitem = next(i for i in inspect(v)["items"] if i["type"] == "video")
     vid, asset = vitem["id"], vitem["asset"]["id"]  # 子视频的素材 ID 与父视频不同
 
