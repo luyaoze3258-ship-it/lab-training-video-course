@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{SERIES}}识别存疑</title>
+</head><body>
+<style>
+/* 布局：单列工单队列，顶部进度条 sticky，每条=原声片段+识别原文+当前理解+三选一 */
+:root{
+  --bg:#f3f5f6; --panel:#ffffff; --fg:#1b2329; --muted:#5d6b75; --line:#d9e0e4;
+  --steel:#2f5d78; --ok:#2e7d4f; --edit:#b5651d; --skip:#7a8590; --okbg:#e6f3eb; --editbg:#fbefe3; --skipbg:#eceff1;
+  --sans:"Noto Sans SC","PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12171b; --panel:#1a2127; --fg:#e4e9ec; --muted:#93a1ab; --line:#2c363d;
+  --steel:#7fb2cf; --ok:#6cc391; --edit:#e7a462; --skip:#9aa6b0; --okbg:#1c3226; --editbg:#3a2a1a; --skipbg:#252d33; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171b; --panel:#1a2127; --fg:#e4e9ec; --muted:#93a1ab; --line:#2c363d;
+  --steel:#7fb2cf; --ok:#6cc391; --edit:#e7a462; --skip:#9aa6b0; --okbg:#1c3226; --editbg:#3a2a1a; --skipbg:#252d33; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.6}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:1px solid var(--line);margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px)));padding:14px max(16px,env(safe-area-inset-left,0px))}
+h1{font-size:20px;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px;margin:2px 0 10px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--steel);width:0;transition:width .3s}
+.stat{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:8px;font-variant-numeric:tabular-nums}
+.stat b{color:var(--fg)}
+#note{font-size:13px;margin-top:6px;color:var(--edit)}
+.list{display:grid;gap:14px;margin-top:18px}
+.q{background:var(--panel);border:1px solid var(--line);border-left:5px solid var(--line);border-radius:8px;padding:14px;display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:14px}
+.q[data-c="ok"]{border-left-color:var(--ok)} .q[data-c="edit"]{border-left-color:var(--edit)} .q[data-c="skip"]{border-left-color:var(--skip)}
+@media (max-width:640px){.q{grid-template-columns:minmax(0,1fr)}}
+video{width:100%;max-width:100%;aspect-ratio:16/9;background:#000;border-radius:6px;display:block}
+.meta{font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.02em;margin-top:6px}
+.body{min-width:0;display:grid;gap:8px;align-content:start}
+.num{font-family:var(--mono);color:var(--steel);font-size:13px}
+.ask{font-weight:700;font-size:16px;margin:0}
+dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 10px;font-size:14px}
+dt{color:var(--muted)} dd{margin:0}
+.asr{background:var(--bg);padding:1px 6px;border-radius:4px}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-size:14px;padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--fg);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+button.on[data-c="ok"]{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+button.on[data-c="edit"]{background:var(--editbg);border-color:var(--edit);color:var(--edit)}
+button.on[data-c="skip"]{background:var(--skipbg);border-color:var(--skip);color:var(--skip)}
+input[type=text]{font:inherit;width:100%;box-sizing:border-box;padding:7px 10px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+.saved{font-size:12px;color:var(--muted);min-height:1em}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>{{SERIES}} · 识别存疑确认</h1>
+    <p class="sub">先播放原声片段，再选：<b>理解正确</b> / <b>改为…</b>（填正确说法）/ <b>不确定</b>。选完自动保存在本浏览器。全部选完点右侧 <b>导出结果</b>，把下载的 JSON 文件告诉 Claude。</p>
+    <p class="sub"><button type="button" id="export">导出结果</button></p>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="stat"><span>已处理 <b id="done">0</b>/14</span><span>正确 <b id="nOk">0</b></span><span>需改 <b id="nEdit">0</b></span><span>不确定 <b id="nSkip">0</b></span></div>
+    <div id="note" hidden></div>
+  </header>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+const Q = [
+  ["01","A 0:33","第01课","调到五五五这里，内圈黑色字","调到约 5 bar","数值和单位对吗？"],
+  ["02","B 1:13","第03课","我用了一个剪刀仪","打压后检一下漏","是“检漏仪”吗？"],
+];
+const LABEL = {ok:"理解正确", edit:"改为…", skip:"不确定"};
+const state = {};           // id -> {c, v}
+let col = null;
+const LS = "ltvc-asr-answers:" + document.title;
+try { Object.assign(state, JSON.parse(localStorage.getItem(LS) || "{}")); } catch {}
+
+const list = document.getElementById("list");
+for (const [id, pos, lesson, asr, cur, ask] of Q) {
+  const el = document.createElement("article");
+  el.className = "q"; el.id = "q" + id;
+  el.innerHTML = `
+    <div><video src="clips/q${id}.mp4" controls preload="metadata" playsinline></video>
+      <div class="meta">${pos} · ${lesson}</div></div>
+    <div class="body">
+      <span class="num">#${id}</span>
+      <p class="ask"></p>
+      <dl><dt>识别原文</dt><dd><span class="asr"></span></dd><dt>当前理解</dt><dd class="cur"></dd></dl>
+      <div class="acts">${Object.keys(LABEL).map(c => `<button type="button" data-c="${c}">${LABEL[c]}</button>`).join("")}</div>
+      <input type="text" id="t${id}" placeholder="填写正确说法 / 数值" hidden>
+      <div class="saved" aria-live="polite"></div>
+    </div>`;
+  el.querySelector(".ask").textContent = ask;
+  el.querySelector(".asr").textContent = asr;
+  el.querySelector(".cur").textContent = cur;
+  el.querySelectorAll("button").forEach(b => b.addEventListener("click", () => choose(id, b.dataset.c)));
+  const t = el.querySelector("input");
+  let timer;
+  t.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(() => save(id, {c: "edit", v: t.value.trim()}), 600); });
+  list.append(el);
+}
+
+function choose(id, c) {
+  save(id, {c, v: c === "edit" ? (state[id]?.v || "") : ""});
+  if (c === "edit") document.getElementById("t" + id).focus();
+}
+
+async function save(id, ans) {
+  state[id] = ans; render();
+  try { localStorage.setItem(LS, JSON.stringify(state)); } catch {}
+  const s = document.querySelector(`#q${id} .saved`);
+  s.textContent = "已保存（本浏览器）"; return;
+  s.textContent = "保存中…";
+  try { await col.doc("q" + id).set({c: ans.c, v: ans.v, at: new Date().toISOString()}); s.textContent = "已保存"; }
+  catch (e) { s.textContent = "保存失败：" + (e?.message || e?.code || "未知错误") + "，请稍后重选一次"; }
+}
+
+function render() {
+  const n = {ok: 0, edit: 0, skip: 0};
+  for (const [id] of Q) {
+    const a = state[id], el = document.getElementById("q" + id);
+    el.dataset.c = a?.c || "";
+    el.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.c === a?.c));
+    const t = el.querySelector("input");
+    t.hidden = a?.c !== "edit";
+    if (document.activeElement !== t) t.value = a?.v || "";
+    if (a?.c) n[a.c]++;
+  }
+  const done = n.ok + n.edit + n.skip;
+  document.getElementById("done").textContent = done;
+  document.getElementById("nOk").textContent = n.ok;
+  document.getElementById("nEdit").textContent = n.edit;
+  document.getElementById("nSkip").textContent = n.skip;
+  document.getElementById("bar").style.width = (done / Q.length * 100) + "%";
+}
+render();
+
+document.getElementById("export").addEventListener("click", () => {
+  const out = {};
+  for (const [id] of Q) if (state[id]?.c) out["q" + id] = state[id];
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], {type: "application/json"}));
+  a.download = "{{SERIES}}识别存疑确认结果.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+</script>
+</body></html>
