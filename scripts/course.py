@@ -3,6 +3,7 @@
   python3 course.py sentences <BaoCut视频目录> <输出.json>     导出句子列表（start/end 秒、text），写计划用
   python3 course.py build <plan.py> [课号 ...]                 按计划出课（派生子视频→旋正→字卡→剪→去口癖→片头片尾→导出）
   python3 course.py qpage <plan.py> <questions.json> <输出目录>  做本地识别存疑确认网页（含原声片段）
+  python3 course.py index <课程输出目录>                        生成课程目录.html（播放器 + 搜索 + 文档页签）
 
 plan.py 的写法见 ../templates/plan_example.py。"""
 import importlib.util, json, os, re, subprocess, sys
@@ -250,5 +251,7 @@ if __name__ == "__main__":
                 build(P, L)
     elif cmd == "qpage":
         qpage(Plan(rest[0]), rest[1], rest[2])
+    elif cmd == "index":
+        subprocess.run([sys.executable, os.path.join(HERE, "index_page.py"), *rest], check=True)
     else:
         print(__doc__)

@@ -5,7 +5,7 @@
 - 只留关键操作和讲解，自动去掉口癖（嗯、呃、啊…）和长停顿，剪掉闲聊
 - 每课都有：片头、底部步骤字幕条、【注意】/【参数】/【术语】提示卡、片尾小结
 - 自动出一节「第00课 安全须知」
-- 一并交付：`课程目录.md`、`操作手册.md`、`规范性检查.md`（对照国标、高校规范、厂商规程），以及**本地识别存疑确认网页**（每条附原声片段，确认后导出 JSON）
+- 一并交付：可双击打开的 `课程目录.html`（播放器 + 搜索 + 文档页签）、`课程目录.md`、`操作手册.md`、`规范性检查.md`（对照国标、高校规范、厂商规程），以及**本地识别存疑确认网页**（每条附原声片段，确认后导出 JSON）
 - 用 BaoCut 剪辑，每课都是可在 BaoCut 编辑器里继续调整的子视频
 
 这是一个 [Agent Skills](https://agentskills.io) 格式的技能（`SKILL.md` + 脚本），适用于 **Claude Code、Codex、WorkBuddy** 等支持 Skills 的智能体。
@@ -67,6 +67,7 @@ cp ~/lab-training-video-course/templates/plan_example.py plan.py          # 按�
 python3 $S/course.py build plan.py 01                                     # 先出一课
 python3 $S/course.py build plan.py                                        # 出全部
 python3 $S/course.py qpage plan.py questions.json ./存疑确认               # 生成本地确认网页
+python3 $S/course.py index ~/Downloads/某仪器培训课程                       # 生成课程目录.html
 ```
 
 计划文件的格式见 [`templates/plan_example.py`](templates/plan_example.py)。
@@ -78,6 +79,8 @@ SKILL.md                 智能体读的流程与规范
 install.sh               依赖检查 + 安装
 scripts/course.py        主流程：sentences / build / qpage
 scripts/cards.py         字幕条、提示卡、幻灯片渲染；纯字卡课出片
+scripts/index_page.py    课程目录.html 生成
+templates/index.html     课程目录网页模板
 templates/plan_example.py  课程计划示例
 templates/qpage.html     存疑确认网页模板
 ```

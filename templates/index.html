@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+/* 布局：顶部标题+搜索+页签；课程页左侧播放器、右侧按部分分组的课程列表；窄屏上下堆叠 */
+:root{
+  --bg:#eef1f3; --panel:#ffffff; --fg:#18222a; --muted:#5b6a75; --line:#d6dde2;
+  --accent:#1f5f8b; --accent-soft:#e3eef6; --warn:#b3261e;
+  --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",system-ui,sans-serif;
+  --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#11171c; --panel:#192127; --fg:#e3e9ed; --muted:#93a2ad; --line:#2a353d;
+  --accent:#7cb4d9; --accent-soft:#1d3342; --warn:#f2867d; color-scheme:dark}}
+*{box-sizing:border-box} [hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.6}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:16px max(16px,4vw) 0}
+h1{margin:0;font-size:22px;text-wrap:balance}
+.meta{color:var(--muted);font-size:13px;margin:2px 0 12px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
+.tab{font:inherit;background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;color:var(--muted);cursor:pointer}
+.tab.on{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
+#q{margin-left:auto;margin-bottom:8px;font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:min(260px,100%)}
+main{padding:16px max(16px,4vw) 40px}
+#lessons{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:20px;align-items:start}
+@media (max-width:860px){#lessons{grid-template-columns:minmax(0,1fr)}}
+.player{position:sticky;top:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+video{width:100%;aspect-ratio:16/9;background:#000;border-radius:6px;display:block}
+.now{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:10px}
+.now .no{font-family:var(--mono);color:var(--accent);font-size:14px}
+.now h2{margin:0;font-size:18px}
+.kw{color:var(--muted);font-size:13px;margin:4px 0 0}
+.nav{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.nav button,.nav label{font:inherit;font-size:13px;padding:5px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--fg);cursor:pointer}
+.nav label{display:flex;gap:6px;align-items:center}
+.list{display:grid;gap:16px}
+.part h3{margin:0 0 6px;font-size:13px;letter-spacing:.06em;color:var(--muted);font-weight:600}
+.item{display:grid;grid-template-columns:96px minmax(0,1fr);gap:10px;align-items:center;width:100%;text-align:left;font:inherit;color:inherit;
+  background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px;cursor:pointer;margin-bottom:6px}
+.item:hover{border-color:var(--accent)}
+.item.on{background:var(--accent-soft);border-color:var(--accent)}
+.item img{width:96px;aspect-ratio:16/9;object-fit:cover;border-radius:4px;display:block}
+.item .t{font-weight:600;font-size:14px}
+.item .t span{font-family:var(--mono);color:var(--accent);margin-right:6px}
+.item .d{font-family:var(--mono);font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.item .k{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+.empty{color:var(--muted)}
+.doc{max-width:960px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 24px 24px}
+.doc h2{font-size:20px} .doc h3{font-size:17px;margin-top:26px} .doc h4{font-size:15px}
+.tbl{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top} th{background:var(--bg)}
+code{font-family:var(--mono);font-size:.92em;background:var(--bg);padding:0 4px;border-radius:3px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style></head><body>
+<header>
+  <h1>{{TITLE}}</h1>
+  <p class="meta">{{META}} · 点课程播放，播完自动接下一课</p>
+  <div class="bar">
+    <button type="button" class="tab on" data-tab="lessons">课程</button>{{DOCTABS}}
+    <input id="q" type="search" placeholder="搜索课名或关键词，如 液氮、MPa" aria-label="搜索课程">
+  </div>
+</header>
+<main>
+  <section id="lessons">
+    <div class="player">
+      <video id="v" controls preload="metadata" playsinline></video>
+      <div class="now"><span class="no" id="cno"></span><h2 id="ctitle"></h2></div>
+      <p class="kw" id="ckw"></p>
+      <div class="nav">
+        <button type="button" id="prev">← 上一课</button><button type="button" id="next">下一课 →</button>
+        <label><input type="checkbox" id="auto" checked> 自动播放下一课</label>
+      </div>
+    </div>
+    <div class="list" id="list"></div>
+  </section>
+  {{DOCS}}
+</main>
+<script>
+const L = {{LESSONS}};
+const $ = id => document.getElementById(id);
+let cur = 0;
+
+function renderList(filter = "") {
+  const f = filter.trim().toLowerCase(), parts = {};
+  for (const [i, l] of L.entries()) {
+    if (f && !(l.no + l.title + l.kw).toLowerCase().includes(f)) continue;
+    (parts[l.part] ||= []).push([i, l]);
+  }
+  $("list").replaceChildren();
+  if (!Object.keys(parts).length) { $("list").innerHTML = '<p class="empty">没有匹配的课程</p>'; return; }
+  for (const [name, items] of Object.entries(parts)) {
+    const sec = document.createElement("div"); sec.className = "part";
+    sec.innerHTML = `<h3>${name}</h3>`;
+    for (const [i, l] of items) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "item" + (i === cur ? " on" : ""); b.dataset.i = i;
+      b.innerHTML = `<img alt="" src="${l.img}"><div><div class="t"><span>${l.no}</span></div><div class="d">${l.dur}</div><div class="k"></div></div>`;
+      b.querySelector(".t").append(l.title); b.querySelector(".k").textContent = l.kw;
+      b.addEventListener("click", () => play(i, true));
+      sec.append(b);
+    }
+    $("list").append(sec);
+  }
+}
+
+function play(i, start) {
+  cur = (i + L.length) % L.length;
+  const l = L[cur];
+  $("v").src = encodeURIComponent(l.file); $("v").poster = l.img;
+  $("cno").textContent = "第" + l.no + "课"; $("ctitle").textContent = l.title; $("ckw").textContent = l.dur + " · " + l.kw;
+  document.querySelectorAll(".item").forEach(b => b.classList.toggle("on", +b.dataset.i === cur));
+  history.replaceState(null, "", "#" + l.no);
+  if (start) $("v").play().catch(() => {});
+}
+
+$("prev").onclick = () => play(cur - 1, true);
+$("next").onclick = () => play(cur + 1, true);
+$("v").addEventListener("ended", () => { if ($("auto").checked && cur < L.length - 1) play(cur + 1, true); });
+$("q").addEventListener("input", e => renderList(e.target.value));
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  $("lessons").hidden = t.dataset.tab !== "lessons";
+  document.querySelectorAll(".doc").forEach(d => d.hidden = d.id !== t.dataset.tab);
+  $("q").hidden = t.dataset.tab !== "lessons";
+}));
+
+const start = L.findIndex(l => "#" + l.no === location.hash);
+renderList(); play(start >= 0 ? start : 0, false);
+</script>
+</body></html>
